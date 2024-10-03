@@ -35,11 +35,11 @@ class AlignedDataset(BaseDataset):
         self.image_info = collections.defaultdict(dict)
         self.df["CategoryId"] = self.df.ClassId.apply(lambda x: str(x).split("_")[0])
         temp_df = (
-            self.df.groupby("ImageId")["EncodedPixels", "CategoryId"]
+            self.df.groupby("ImageId")[["EncodedPixels", "CategoryId"]]
             .agg(lambda x: list(x))
             .reset_index()
         )
-        size_df = self.df.groupby("ImageId")["Height", "Width"].mean().reset_index()
+        size_df = self.df.groupby("ImageId")[["Height", "Width"]].mean().reset_index()
         temp_df = temp_df.merge(size_df, on="ImageId", how="left")
         for index, row in tqdm(temp_df.iterrows(), total=len(temp_df)):
             image_id = row["ImageId"]
@@ -58,7 +58,12 @@ class AlignedDataset(BaseDataset):
     def __getitem__(self, index):
         # load images ad masks
         idx = index
-        img_path = self.image_info[idx]["image_path"]
+        if os.path.exists(self.image_info[idx]["image_path"] + ".jpg"):
+            img_path = self.image_info[idx]["image_path"] + ".jpg"
+        elif os.path.exists(self.image_info[idx]["image_path"] + ".png"):
+            img_path = self.image_info[idx]["image_path"] + ".png"
+        else:
+            raise FileNotFoundError(f"Image not found: {self.image_info[idx]['image_path']}")
         img = Image.open(img_path).convert("RGB")
         img = img.resize((self.width, self.height), resample=Image.BICUBIC)
         image_tensor = self.transform_rgb(img)
@@ -168,7 +173,7 @@ class AlignedDataset(BaseDataset):
         shape: (height,width) of array to return
         Returns numpy array according to the shape, 1 - mask, 0 - background
         """
-        shape = (shape[1], shape[0])
+        shape = (int(shape[1]), int(shape[0]))
         s = mask_rle.split()
         # gets starts & lengths 1d arrays
         starts, lengths = [np.asarray(x, dtype=int) for x in (s[0::2], s[1::2])]
@@ -176,7 +181,7 @@ class AlignedDataset(BaseDataset):
         # gets ends 1d array
         ends = starts + lengths
         # creates blank mask image 1d array
-        img = np.zeros(shape[0] * shape[1], dtype=np.uint8)
+        img = np.zeros(int(shape[0]) * int(shape[1]), dtype=np.uint8)
         # sets mark pixles
         for lo, hi in zip(starts, ends):
             img[lo:hi] = 1
