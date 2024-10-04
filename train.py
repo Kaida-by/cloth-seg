@@ -101,7 +101,7 @@ def training_loop(opt):
     weights = torch.from_numpy(weights).to(device)
     loss_CE = nn.CrossEntropyLoss(weight=weights).to(device)
 
-    pbar = range(opt.iter)
+    pbar = range(23000, opt.iter)
     get_data = sample_data(loader)
 
     start_time = time.time()
